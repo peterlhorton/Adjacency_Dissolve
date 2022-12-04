@@ -38,6 +38,8 @@ def adjacency_dissolve(gdf, include_point_adjacency = True):
 def calculate_adjacency(gdf, include_point_adjacency = True):
     '''
     Code that takes a geodataframe and returns a dictionary of adjacencies
+
+    Includes an 'include_point_adjacency' parameter, default value of True, that can be changed to exclude point adjacencies
     '''    
     # Intersected the GeoDataFrame with the buffer with the original GeoDataFrame
     test_intersection = gp.overlay(gdf, gdf, how = "intersection", keep_geom_type = False)
@@ -56,31 +58,51 @@ def calculate_adjacency(gdf, include_point_adjacency = True):
     # Define a tuple of zips of the unique_col pairs present in the intersection
     test_intersection_tuples = list(list(zip(test_intersection["index_1"], test_intersection["index_2"])))
     
-    return subadjacencies_faster_3([set(i) for i in test_intersection_tuples]) + list(ser[ser==1].index)
+    return merge_adjacencies([set(i) for i in test_intersection_tuples]) + list(ser[ser==1].index)
 
-def subadjacencies_faster_3(dup_list):
-    all_intersections = starmap(set.intersection, combinations(dup_list, 2))
+def merge_adjacencies(list_of_sets):
+    '''
+    Takes a list of sets and returns a list of lists where the sets have been combined into sorted lists if two sets contain any of the same elements
+
+    Ex. [(9,1), (1,5), (3,6)] -> [[1,5,9], [3,6]]
+    '''
+
+    # Perform an intersection across all combinations of two sets
+    all_intersections = starmap(set.intersection, combinations(list_of_sets, 2))
     finished = True
+
+    # Iterate over all of the intersections
     for val in all_intersections:
+        # If there are any intersections across two of the sets, we will need to do combining
         if val != set():
             finished = False
+    # If there are not, we can return the list of sets as a list of sorted lists
     if finished:
-        return [sorted(list(i)) for i in dup_list]
+        return [sorted(list(i)) for i in list_of_sets]
+
+    # Otherwise we must combine the values
     else:
+        # Define a list to hold the our return value
         final_holder = []
-        for val in dup_list:
+        # Iterate over the list of sets
+        for val in list_of_sets:
             added = False
+            # Define a list to keep track of indices where the 'val' has a non-empty intersection with the values in final_holder
             added_indices = []
+            # Iterate over the final_holder list defined above
             for idx, x in enumerate(final_holder):
+                # If there is a non-zero intersection, union the values, and add the indices to the added_indices list
                 if len(x.intersection(val)) > 0:
                     final_holder[idx] = x.union(val)
                     added_indices.append(idx)
                     added = True
+            # When the val intersects with two of the final_holder elements, those must be combined
             if len(added_indices) > 1:
                 for i in range(1, len(added_indices)):
                     final_holder[added_indices[0]] = final_holder[added_indices[0]].union(final_holder[added_indices[i]])
                 for i in range(len(added_indices)-1,0,-1):
                     final_holder.pop(added_indices[i])
+            # If val does not intersect with any element, append it to final_holder
             if not added:
                 final_holder.append(val)
         return final_holder
