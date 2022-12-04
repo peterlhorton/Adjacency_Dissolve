@@ -78,7 +78,7 @@ def merge_adjacencies(list_of_sets):
             finished = False
     # If there are not, we can return the list of sets as a list of sorted lists
     if finished:
-        return [sorted(list(i)) for i in list_of_sets]
+        return list_of_sets
 
     # Otherwise we must combine the values
     else:
